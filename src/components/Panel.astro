@@ -1,0 +1,38 @@
+---
+interface Props {
+  title: string;
+  hint?: string;
+  span2?: boolean;
+}
+const { title, hint, span2 = false } = Astro.props;
+---
+<section class={`panel${span2 ? ' span-2' : ''}`}>
+  <div class="panel-head">
+    <h2>{title}</h2>
+    {hint && <span class="hint">{hint}</span>}
+  </div>
+  <div class="panel-body">
+    <slot />
+  </div>
+</section>
+
+<style>
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .panel-head h2 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.2px; }
+  .hint { font-size: 11px; color: var(--muted); }
+  .panel-body { flex: 1; }
+</style>

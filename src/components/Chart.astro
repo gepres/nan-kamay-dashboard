@@ -1,0 +1,20 @@
+---
+// Renderiza un <canvas> con la config serializada; el script global de Layout.astro
+// (que importa chart.js) la lee de data-chart y lo inicializa en el cliente.
+interface Props {
+  id: string;
+  type: 'bar' | 'line' | 'doughnut' | 'pie';
+  data: unknown;
+  options?: Record<string, unknown>;
+  height?: number;
+}
+const { id, type, data, options = {}, height = 280 } = Astro.props;
+const payload = JSON.stringify({ type, data, options });
+---
+<div class="chart-wrap" style={`height:${height}px`}>
+  <canvas id={id} data-chart={payload}></canvas>
+</div>
+
+<style>
+  .chart-wrap { position: relative; width: 100%; }
+</style>

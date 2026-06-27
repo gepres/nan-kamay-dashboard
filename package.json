@@ -1,0 +1,21 @@
+{
+  "name": "nan-kamay-dashboard",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Panel de estadísticas de uso de Ñan Kamay (lee nk_events / nk_bug_reports de Supabase).",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "start": "node ./dist/server/entry.mjs",
+    "check": "astro check",
+    "test:db": "node --env-file=.env scripts/test-db.mjs"
+  },
+  "dependencies": {
+    "@astrojs/node": "^9.0.0",
+    "astro": "^5.0.0",
+    "chart.js": "^4.4.0",
+    "postgres": "^3.4.0"
+  }
+}

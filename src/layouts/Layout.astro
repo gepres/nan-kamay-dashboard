@@ -1,0 +1,134 @@
+---
+interface Props {
+  title?: string;
+}
+const { title = 'Ñan Kamay — Panel' } = Astro.props;
+const now = new Date().toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' });
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">🗺️</span>
+        <div>
+          <h1>Ñan Kamay · Panel de uso</h1>
+          <p class="sub">Analítica in-house · datos propios · sin GPS ni PII</p>
+        </div>
+      </div>
+      <div class="meta">
+        <span class="updated">Actualizado: {now}</span>
+        <a class="refresh" href="/" title="Recargar datos">↻ Actualizar</a>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer>
+      <span>Lee <code>nk_events</code> y <code>nk_bug_reports</code> de Supabase (solo lectura).</span>
+    </footer>
+
+    <script>
+      import Chart from 'chart.js/auto';
+
+      Chart.defaults.color = '#A7C4B5';
+      Chart.defaults.borderColor = '#2D6A4F40';
+      Chart.defaults.font.family = "Inter, system-ui, -apple-system, sans-serif";
+      Chart.defaults.font.size = 12;
+      Chart.defaults.plugins.legend.labels.boxWidth = 12;
+      Chart.defaults.plugins.legend.labels.boxHeight = 12;
+
+      document.querySelectorAll<HTMLCanvasElement>('canvas[data-chart]').forEach((canvas) => {
+        const raw = canvas.dataset.chart;
+        if (!raw) return;
+        try {
+          const config = JSON.parse(raw);
+          new Chart(canvas, config);
+        } catch (e) {
+          console.error('No se pudo inicializar el gráfico', canvas.id, e);
+        }
+      });
+    </script>
+
+    <style is:global>
+      :root {
+        --accent: #F59E0B;
+        --accent-soft: #F59E0B30;
+        --bg: #0D1B12;
+        --card: #1B4332;
+        --elevated: #2D6A4F;
+        --input: #14291D;
+        --text: #FFFFFF;
+        --text-2: #A7C4B5;
+        --muted: #6B8F7B;
+        --border: #2D6A4F;
+        --success: #22C55E;
+        --danger: #EF4444;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 20px 28px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, #14291D, var(--bg));
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .brand { display: flex; align-items: center; gap: 14px; }
+      .logo { font-size: 30px; }
+      .topbar h1 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.2px; }
+      .sub { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+      .meta { display: flex; align-items: center; gap: 14px; }
+      .updated { font-size: 12px; color: var(--muted); }
+      .refresh {
+        font-size: 13px; font-weight: 600; color: var(--accent);
+        text-decoration: none; border: 1px solid var(--accent);
+        padding: 7px 12px; border-radius: 10px; transition: background .15s;
+      }
+      .refresh:hover { background: var(--accent-soft); }
+
+      main { padding: 24px 28px 8px; max-width: 1280px; margin: 0 auto; }
+
+      footer {
+        padding: 18px 28px 32px;
+        max-width: 1280px; margin: 0 auto;
+        color: var(--muted); font-size: 12px;
+      }
+      footer code { color: var(--text-2); background: var(--input); padding: 1px 6px; border-radius: 5px; }
+
+      /* Layout de cuadrícula reutilizable */
+      .grid { display: grid; gap: 16px; }
+      .kpis { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 20px; }
+      .panels { grid-template-columns: repeat(2, 1fr); }
+      @media (max-width: 880px) { .panels { grid-template-columns: 1fr; } }
+
+      .span-2 { grid-column: 1 / -1; }
+    </style>
+  </body>
+</html>

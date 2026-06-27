@@ -1,0 +1,36 @@
+---
+interface Props {
+  label: string;
+  value: number | string;
+  icon: string;
+  accent?: 'amber' | 'green' | 'red';
+}
+const { label, value, icon, accent = 'amber' } = Astro.props;
+const display = typeof value === 'number' ? value.toLocaleString('es-PE') : value;
+---
+<div class={`kpi kpi-${accent}`}>
+  <span class="kpi-icon">{icon}</span>
+  <div>
+    <div class="kpi-value">{display}</div>
+    <div class="kpi-label">{label}</div>
+  </div>
+</div>
+
+<style>
+  .kpi {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: 14px;
+    padding: 16px 18px;
+  }
+  .kpi-amber { border-left-color: var(--accent); }
+  .kpi-green { border-left-color: var(--success); }
+  .kpi-red { border-left-color: var(--danger); }
+  .kpi-icon { font-size: 24px; }
+  .kpi-value { font-size: 26px; font-weight: 800; line-height: 1.1; }
+  .kpi-label { font-size: 12px; color: var(--text-2); margin-top: 3px; }
+</style>

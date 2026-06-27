@@ -1,0 +1,203 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Panel from '../components/Panel.astro';
+import KpiCard from '../components/KpiCard.astro';
+import Chart from '../components/Chart.astro';
+import { getDashboardData, EVENT_LABELS } from '../lib/queries';
+
+const data = await getDashboardData();
+const hasData = data.connected && data.kpis.totalEvents > 0;
+
+// Paleta verde-bosque + ámbar (tokens del app).
+const PALETTE = ['#F59E0B', '#22C55E', '#40916C', '#74C69D', '#2D6A4F', '#95D5B2', '#52B788', '#B7E4C7'];
+
+const baseBar = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } },
+};
+const baseBarH = {
+  indexAxis: 'y',
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } },
+};
+const doughnutOpts = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '58%',
+  plugins: { legend: { position: 'right' } },
+};
+
+// ── Configs de gráficos (datos del servidor → JSON → Chart.js en cliente) ──
+const dauChart = {
+  labels: data.dau.map((d) => d.day.slice(5)),
+  datasets: [{
+    label: 'Usuarios activos',
+    data: data.dau.map((d) => d.users),
+    borderColor: '#F59E0B',
+    backgroundColor: '#F59E0B33',
+    fill: true, tension: 0.3, pointRadius: 2, borderWidth: 2,
+  }],
+};
+const dauOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } },
+};
+
+const screensChart = {
+  labels: data.topScreens.map((s) => s.screen),
+  datasets: [{ label: 'Vistas', data: data.topScreens.map((s) => s.views), backgroundColor: '#40916C', borderRadius: 4 }],
+};
+
+const funnelChart = {
+  labels: data.funnel.map((f) => EVENT_LABELS[f.name] ?? f.name),
+  datasets: [{ label: 'Usuarios', data: data.funnel.map((f) => f.users), backgroundColor: ['#74C69D', '#40916C', '#F59E0B'], borderRadius: 6 }],
+};
+
+const activitiesChart = {
+  labels: data.activities.map((a) => a.activity),
+  datasets: [{ data: data.activities.map((a) => a.count), backgroundColor: PALETTE, borderColor: '#0D1B12', borderWidth: 2 }],
+};
+
+const regionsChart = {
+  labels: data.regions.map((r) => r.region),
+  datasets: [{ label: 'Descargas', data: data.regions.map((r) => r.downloads), backgroundColor: '#74C69D', borderRadius: 4 }],
+};
+
+const featuresChart = {
+  labels: data.features.map((f) => EVENT_LABELS[f.name] ?? f.name),
+  datasets: [
+    { label: 'Usos', data: data.features.map((f) => f.uses), backgroundColor: '#F59E0B', borderRadius: 4 },
+    { label: 'Usuarios', data: data.features.map((f) => f.users), backgroundColor: '#40916C', borderRadius: 4 },
+  ],
+};
+const featuresOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { position: 'top' } },
+  scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } },
+};
+
+const bugsCatChart = {
+  labels: data.bugsByCategory.map((b) => b.category),
+  datasets: [{ data: data.bugsByCategory.map((b) => b.count), backgroundColor: PALETTE, borderColor: '#0D1B12', borderWidth: 2 }],
+};
+---
+
+<Layout>
+  {!data.connected && (
+    <div class="banner error">
+      <strong>Sin conexión a la base de datos.</strong>
+      <p>{data.error}</p>
+      <ol>
+        <li>Copia <code>.env.example</code> a <code>.env</code>.</li>
+        <li>Crea el rol de solo-lectura <code>metabase_ro</code> en Supabase (ver <code>docs/ANALYTICS.md</code> del app, §5.2) y pega su cadena de conexión en <code>DATABASE_URL</code>.</li>
+        <li>Aplica <code>supabase/schema.sql</code> si aún no existen <code>nk_events</code> / <code>nk_bug_reports</code>.</li>
+        <li>Reinicia el panel.</li>
+      </ol>
+    </div>
+  )}
+
+  {data.connected && !hasData && (
+    <div class="banner info">
+      <strong>Conectado, pero aún no hay eventos.</strong>
+      <p>Usa la app (con sesión iniciada) y navega/realiza acciones. Los eventos llegan por lotes
+        a <code>nk_events</code> y aparecerán aquí al recargar.</p>
+    </div>
+  )}
+
+  {data.connected && (
+    <>
+      <div class="grid kpis">
+        <KpiCard label="Eventos totales" value={data.kpis.totalEvents} icon="📈" accent="amber" />
+        <KpiCard label="Usuarios activos (7 días)" value={data.kpis.activeUsers7d} icon="🧭" accent="green" />
+        <KpiCard label="Eventos hoy" value={data.kpis.eventsToday} icon="⚡" accent="green" />
+        <KpiCard label="Bugs abiertos" value={data.kpis.openBugs} icon="🐞" accent="red" />
+      </div>
+
+      <div class="grid panels">
+        <Panel title="Usuarios activos por día" hint="últimos 30 días" span2>
+          <Chart id="dau" type="line" data={dauChart} options={dauOpts} height={260} />
+        </Panel>
+
+        <Panel title="Pantallas más usadas" hint="screen_view · 30 días">
+          <Chart id="screens" type="bar" data={screensChart} options={baseBarH} height={300} />
+        </Panel>
+
+        <Panel title="Embudo: grabar → guardar → exportar" hint="usuarios únicos">
+          <Chart id="funnel" type="bar" data={funnelChart} options={baseBar} height={300} />
+        </Panel>
+
+        <Panel title="Tipos de actividad" hint="al iniciar grabación">
+          <Chart id="activities" type="doughnut" data={activitiesChart} options={doughnutOpts} height={280} />
+        </Panel>
+
+        <Panel title="Zonas offline más descargadas">
+          <Chart id="regions" type="bar" data={regionsChart} options={baseBarH} height={280} />
+        </Panel>
+
+        <Panel title="Adopción de funciones" hint="usos y usuarios" span2>
+          <Chart id="features" type="bar" data={featuresChart} options={featuresOpts} height={280} />
+        </Panel>
+
+        <Panel title="Bugs por categoría">
+          <Chart id="bugscat" type="doughnut" data={bugsCatChart} options={doughnutOpts} height={280} />
+        </Panel>
+
+        <Panel title="Reportes de bug recientes" hint="últimos 15">
+          {data.recentBugs.length === 0 ? (
+            <p class="empty">Sin reportes todavía.</p>
+          ) : (
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Fecha</th><th>Categoría</th><th>Ver.</th><th>SO</th><th>Mensaje</th></tr>
+                </thead>
+                <tbody>
+                  {data.recentBugs.map((b) => (
+                    <tr>
+                      <td class="nowrap">{b.created_at}</td>
+                      <td><span class="tag">{b.category}</span></td>
+                      <td class="nowrap">{b.app_version}</td>
+                      <td>{b.platform}</td>
+                      <td class="msg">{b.message}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </div>
+    </>
+  )}
+</Layout>
+
+<style>
+  .banner {
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    background: var(--card);
+  }
+  .banner.error { border-color: #EF444466; background: #2a1414; }
+  .banner.info { border-color: var(--accent); background: var(--accent-soft); }
+  .banner strong { font-size: 15px; }
+  .banner p { margin: 8px 0; color: var(--text-2); font-size: 13px; }
+  .banner ol { margin: 8px 0 0; padding-left: 20px; color: var(--text-2); font-size: 13px; line-height: 1.8; }
+  .banner code { background: var(--input); padding: 1px 6px; border-radius: 5px; color: var(--text); }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+  td { color: var(--text-2); }
+  .nowrap { white-space: nowrap; }
+  .msg { color: var(--text); max-width: 360px; }
+  .tag { background: var(--input); border: 1px solid var(--border); border-radius: 12px; padding: 2px 8px; font-size: 11px; color: var(--text-2); }
+  .empty { color: var(--muted); font-size: 13px; }
+</style>
