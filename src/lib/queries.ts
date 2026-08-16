@@ -4,7 +4,7 @@ import { getSql, hasDb } from './db';
 export interface DashboardData {
   connected: boolean;
   error: string | null;
-  kpis: { totalEvents: number; activeUsers7d: number; eventsToday: number; openBugs: number };
+  kpis: { totalEvents: number; activeUsers7d: number; eventsToday: number; openBugs: number; syncFailures7d: number };
   dau: { day: string; users: number }[];
   topScreens: { screen: string; views: number }[];
   funnel: { name: string; users: number }[];
@@ -19,7 +19,7 @@ function empty(error: string | null): DashboardData {
   return {
     connected: false,
     error,
-    kpis: { totalEvents: 0, activeUsers7d: 0, eventsToday: 0, openBugs: 0 },
+    kpis: { totalEvents: 0, activeUsers7d: 0, eventsToday: 0, openBugs: 0, syncFailures7d: 0 },
     dau: [], topScreens: [], funnel: [], activities: [], regions: [], features: [],
     bugsByCategory: [], recentBugs: [],
   };
@@ -35,13 +35,19 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   try {
     const [
-      kTotal, kUsers7d, kToday, kBugs,
+      kTotal, kUsers7d, kToday, kBugs, kSyncFail,
       dau, topScreens, funnel, activities, regions, features, bugsByCategory, recentBugs,
     ] = await Promise.all([
       sql`SELECT count(*)::int AS n FROM nk_events`,
       sql`SELECT count(DISTINCT user_id)::int AS n FROM nk_events WHERE created_at > now() - interval '7 days'`,
       sql`SELECT count(*)::int AS n FROM nk_events WHERE created_at >= date_trunc('day', now())`,
       sql`SELECT count(*)::int AS n FROM nk_bug_reports WHERE status = 'open'`,
+
+      // Fallos de sincronización: lo primero que hay que mirar durante la beta,
+      // porque son problemas que el usuario casi nunca reporta.
+      sql`SELECT count(*)::int AS n FROM nk_events
+          WHERE name IN ('sync_failed','sync_integrity_mismatch')
+            AND created_at > now() - interval '7 days'`,
 
       sql`SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, count(DISTINCT user_id)::int AS users
           FROM nk_events
@@ -70,7 +76,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
       sql`SELECT name, count(*)::int AS uses, count(DISTINCT user_id)::int AS users
           FROM nk_events
-          WHERE name IN ('live_share_started','safety_share_prepared','planned_route_saved','route_exported','bug_report_submitted','offline_map_downloaded')
+          WHERE name IN ('live_share_started','safety_share_prepared','planned_route_saved','route_exported','bug_report_submitted','offline_map_downloaded','track_edited','replay_played','postcard_shared','public_route_opened','waypoint_added')
           GROUP BY name ORDER BY uses DESC`,
 
       sql`SELECT coalesce(category, '(sin categoría)') AS category, count(*)::int AS count
@@ -98,6 +104,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         activeUsers7d: kUsers7d[0]?.n ?? 0,
         eventsToday: kToday[0]?.n ?? 0,
         openBugs: kBugs[0]?.n ?? 0,
+        syncFailures7d: kSyncFail[0]?.n ?? 0,
       },
       dau: dau as DashboardData['dau'],
       topScreens: topScreens as DashboardData['topScreens'],
@@ -125,4 +132,14 @@ export const EVENT_LABELS: Record<string, string> = {
   bug_report_submitted: 'Reportó bug',
   offline_map_downloaded: 'Descargó mapa offline',
   screen_view: 'Vista de pantalla',
+  // Añadidos 2026-08: funciones que existían sin medir + los primeros eventos
+  // de fallo (antes un problema solo se veía si el usuario lo reportaba a mano).
+  track_edited: 'Editó el trazado',
+  replay_played: 'Vio el replay',
+  postcard_shared: 'Compartió postal',
+  waypoint_added: 'Añadió waypoint',
+  public_route_opened: 'Abrió ruta pública',
+  sync_completed: 'Sincronizó',
+  sync_failed: 'Falló la sincronización',
+  sync_integrity_mismatch: 'Descuadre de puntos al sincronizar',
 };
