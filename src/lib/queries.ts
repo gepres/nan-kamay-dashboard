@@ -13,6 +13,8 @@ export interface DashboardData {
   features: { name: string; uses: number; users: number }[];
   bugsByCategory: { category: string; count: number }[];
   recentBugs: { created_at: string; category: string; app_version: string; platform: string; message: string }[];
+  /** Prueba cerrada de Play: quién se apuntó y hace cuántos días (KA-16). */
+  testers: { email: string; name: string | null; status: string; dias: number; created_at: string }[];
 }
 
 function empty(error: string | null): DashboardData {
@@ -21,7 +23,7 @@ function empty(error: string | null): DashboardData {
     error,
     kpis: { totalEvents: 0, activeUsers7d: 0, eventsToday: 0, openBugs: 0, syncFailures7d: 0 },
     dau: [], topScreens: [], funnel: [], activities: [], regions: [], features: [],
-    bugsByCategory: [], recentBugs: [],
+    bugsByCategory: [], recentBugs: [], testers: [],
   };
 }
 
@@ -92,6 +94,25 @@ export async function getDashboardData(): Promise<DashboardData> {
           ORDER BY created_at DESC LIMIT 15`,
     ]);
 
+    // Testers aparte y tolerante a fallo: si a `nk_testers` le falta el GRANT o
+    // la política de SELECT (KA-19), esta consulta lanza — y dentro del
+    // Promise.all se llevaría por delante TODO el panel. Degradar a lista vacía.
+    let testers: DashboardData['testers'] = [];
+    try {
+      testers = (await sql`
+        SELECT email,
+               name,
+               status,
+               EXTRACT(day FROM now() - created_at)::int AS dias,
+               to_char(created_at, 'YYYY-MM-DD') AS created_at
+        FROM nk_testers
+        WHERE status <> 'baja'
+        ORDER BY created_at
+      `) as DashboardData['testers'];
+    } catch (e) {
+      console.warn('[dashboard] no se pudo leer nk_testers:', e instanceof Error ? e.message : e);
+    }
+
     // Reordena el embudo a record → save → export, rellenando con 0 los ausentes.
     const funnelMap = new Map(funnel.map((r) => [r.name as string, r.users as number]));
     const funnelOrdered = FUNNEL_STEPS.map((name) => ({ name, users: funnelMap.get(name) ?? 0 }));
@@ -114,6 +135,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       features: features as DashboardData['features'],
       bugsByCategory: bugsByCategory as DashboardData['bugsByCategory'],
       recentBugs: recentBugs as DashboardData['recentBugs'],
+      testers,
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Error desconocido consultando la base de datos.';

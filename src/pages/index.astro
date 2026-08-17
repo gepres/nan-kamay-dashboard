@@ -81,6 +81,16 @@ const featuresOpts = {
   scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } },
 };
 
+// ── Prueba cerrada: Play exige 12 testers opted-in 14 días CONTINUOS ──
+// `dias` cuenta desde el alta en la landing, que es lo único que sabemos: no
+// prueba que sigan dentro del grupo ni que no hayan desinstalado. Sirve para
+// saber a quién escribirle, no para dar el requisito por cumplido.
+const TESTERS_META = 12;
+const testersOk14 = data.testers.filter((t) => t.dias >= 14).length;
+const testersNew7d = data.testers.filter((t) => t.dias <= 7).length;
+/** Días en los que toca recordar "no desinstales todavía". */
+const RECORDATORIOS = [3, 10];
+
 const bugsCatChart = {
   labels: data.bugsByCategory.map((b) => b.category),
   datasets: [{ data: data.bugsByCategory.map((b) => b.count), backgroundColor: PALETTE, borderColor: '#0D1B12', borderWidth: 2 }],
@@ -148,6 +158,47 @@ const bugsCatChart = {
           <Chart id="bugscat" type="doughnut" data={bugsCatChart} options={doughnutOpts} height={280} />
         </Panel>
 
+        <Panel title="Prueba cerrada · testers" hint={`${data.testers.length}/${TESTERS_META} · ${testersOk14} con 14+ días`} span2>
+          {data.testers.length === 0 ? (
+            <p class="empty">Nadie se ha apuntado todavía en <code>/beta</code>.</p>
+          ) : (
+            <>
+              <div class="progress" role="img" aria-label={`${data.testers.length} de ${TESTERS_META} testers`}>
+                <div class="progress-fill" style={`width:${Math.min(100, (data.testers.length / TESTERS_META) * 100)}%`}></div>
+              </div>
+              <p class="note">
+                Play pide <strong>{TESTERS_META} testers opted-in durante 14 días continuos</strong>.
+                Aquí se cuentan los días desde el alta en la landing: <strong>no verifica</strong> que
+                sigan en el grupo ni que no hayan desinstalado — contrástalo con los miembros reales
+                del grupo de Google. Hoy hay <strong>{testersNew7d}</strong> de la última semana.
+              </p>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Correo</th><th>Nombre</th><th>Alta</th><th>Días</th><th>Estado</th></tr>
+                  </thead>
+                  <tbody>
+                    {data.testers.map((t) => (
+                      <tr>
+                        <td class="msg">{t.email}</td>
+                        <td>{t.name ?? '—'}</td>
+                        <td class="nowrap">{t.created_at}</td>
+                        <td class="nowrap">
+                          <span class={t.dias >= 14 ? 'day ok' : RECORDATORIOS.includes(t.dias) ? 'day warn' : 'day'}>
+                            {t.dias} d
+                          </span>
+                          {RECORDATORIOS.includes(t.dias) && <span class="ping"> · recordar</span>}
+                        </td>
+                        <td><span class="tag">{t.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </Panel>
+
         <Panel title="Reportes de bug recientes" hint="últimos 15">
           {data.recentBugs.length === 0 ? (
             <p class="empty">Sin reportes todavía.</p>
@@ -201,4 +252,15 @@ const bugsCatChart = {
   .msg { color: var(--text); max-width: 360px; }
   .tag { background: var(--input); border: 1px solid var(--border); border-radius: 12px; padding: 2px 8px; font-size: 11px; color: var(--text-2); }
   .empty { color: var(--muted); font-size: 13px; }
+  .empty code { background: var(--input); padding: 1px 6px; border-radius: 5px; color: var(--text-2); }
+
+  /* Prueba cerrada */
+  .progress { height: 8px; border-radius: 99px; background: var(--input); border: 1px solid var(--border); overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 99px; }
+  .note { color: var(--text-2); font-size: 12.5px; line-height: 1.6; margin: 10px 0 14px; }
+  .note strong { color: var(--text); }
+  .day { font-variant-numeric: tabular-nums; }
+  .day.ok { color: var(--success); font-weight: 700; }
+  .day.warn { color: var(--accent); font-weight: 700; }
+  .ping { color: var(--accent); font-size: 11px; }
 </style>
